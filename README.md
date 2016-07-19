@@ -1,0 +1,2 @@
+# UKfluwork
+Adapted influenza model
