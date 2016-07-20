@@ -1,4 +1,4 @@
-\maketitle
+
 Introduction
 ============
 
