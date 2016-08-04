@@ -1,11 +1,10 @@
 #Source file for fluEvidenceSynthesis for changing likelihood. Options for varying age group sizes, risk groups, (and susceptibility, and ascertainment through the starting parameters). Adapted from code by Baguelin 2013 and Edwin van Leevvan, by TajWenzel.
 
 #pars<-initial.parameters;
-#polymod<-polymod_uk
-#age.group.limits<-age.group.limits
-#age.group.sizes<-age.group.sizes
+#polymod<-set
+#agegrouplimits<-age.group.limits
+#agegroupsizes<-age.group.sizes
 #riskratios<-risk.ratios.null
-
 
 
 build.llikelihood<-function()
@@ -19,7 +18,7 @@ llikelihood.f <- function(pars, agegrouplimits, agegroupsizes, riskratios,...)
     }
     # Resample contact ids. T
     contacts<- contact.matrix(as.matrix(polymod[proposed.contact.ids,]),
-                              age_sizes[,1], agegrouplimits )
+                              age_sizes[,1], agegrouplimits)
     
     
     age.groups <- stratify_by_age(age_sizes[,1], agegrouplimits)
@@ -32,7 +31,7 @@ llikelihood.f <- function(pars, agegrouplimits, agegroupsizes, riskratios,...)
     
     initial.risk<-(rep(10^pars[9], length(riskratios)));
     initial.infected <- stratify_by_risk(initial.risk, riskratios) 
-    odes <- infectionODEs(popv, initial.infected,
+    odes <<- infectionODEs(popv, initial.infected,
                           vaccine_calendar,
                     contacts,c(pars[6], pars[6], pars[6],pars[7], pars[7], pars[7], pars[8]),
                           transmissibility = pars[5],
@@ -58,8 +57,8 @@ llikelihood.f <- function(pars, agegrouplimits, agegroupsizes, riskratios,...)
     
     ll<-log_likelihood_cases(
       epsilons,pars[4], as.matrix(converted.odes),
-      agegroupsizes, ili$ili, ili$total.monitored,
-      confirmed.samples$positive, confirmed.samples$total.samples)
+      agegroupsizes, newili$ili, newili$total.monitored,
+      newcs$positive, newcs$total.samples)
     return(ll)
   }
   return(llikelihood.f)

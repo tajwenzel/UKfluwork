@@ -1,8 +1,8 @@
 #Based on Marc Baguelin's 2013 paper, written in R by Dr. Edwin van Leevan, modified by NWenzel, University of Washington School of Public Health, Department of Epidemiology. July 2016
 
 #####Load in package from github
-library(devtools)
-install_github("MJomaba/flu-evidence-synthesis", force=TRUE)
+#library(devtools)
+#install_github("MJomaba/flu-evidence-synthesis", force=TRUE)
 ###load package
 library(fluEvidenceSynthesis)
 library(plyr)
@@ -13,37 +13,39 @@ library(pander)
 ##FILE PATH & CLEAN UP
 rm(list = ls())
 setwd("/Users/Natasha/Dropbox/UKfluwork")
-
-#Load data
 data("age_sizes")
-data("polymod_uk")
-data("ili")
-data("confirmed.samples")
+
+#country levels BE DE FI GB IT LU NL PL
+temp = list.files(pattern="*table.csv")
+allpolymod = lapply(temp, read.csv)
+polymod<-allpolymod[[4]];
+#Load data
+#data("age_sizes")
+#data("polymod_uk")
+
 
 #ilitest<-dget(file='INPUT_ilisample.R',keep.source=TRUE)
 #confirmed.samples<-dget(file='INPUT_confirmedsamp.R',keep.source=TRUE)
 
-#set initial parameters
-initial.parameters <- dget(file="UKStart.R", keep.source=TRUE) #unnkowns and known
-vstrategy<-dget(file='FUNC_vstrategy.R',keep.source=TRUE)
-
-polymod<-polymod_uk
 #rawpolymod<-read.csv('polymod_contacts.csv',header=TRUE,sep=',') #which dataset
 current.contact.ids <- seq(1,nrow(polymod))
 proposed.contact.ids <- current.contact.ids
-###Now that vaccination schemes have been input, we will run the model to look at different scenarios. 
+initial.parameters <- dget(file="INPUT_UKinitial.R", keep.source=TRUE) #unnkowns and known
+vstrategy<-dget(file='FUNC_vstrategy.R',keep.source=TRUE)
+
 
 ###SOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVERSOLVER
-
+#dply by participant, age group and sum 
 ###MCMC run iteration 
 burnin<-100; #potatoes
-out<-100; #meat
+out<-200; #meat
 saveiteration<-1; #keeper
 
 ###################################################ALTERNATE
 age.group.limits <- c(1,5,15,25,45,65)
 risk.ratios.null<-matrix(c(rep(0,7)), ncol = 7, byrow = T)
-vaccine_calendar<-vstrategy(risk.ratios.null)
+vcalendar<-vstrategy(risk.ratios.null)
+
 
 age.group.sizes <- stratify_by_age(age_sizes$V1,c(1,5,15,25,45,65))
 # Fraction of each age group classified as high risk. Additional risk groups can be added here, as additional rows in our risk.ratios matrix)
@@ -67,38 +69,16 @@ llprior <- function(pars) {
   return(lprob)
 }
 
+
 contact.ids<-list()
 # Run adaptive.mcmc
 ptm <- proc.time() 
 mcmc.result <- adaptive.mcmc(lprior = llprior, llikelihood, 
-                             outfun<<-function() {contact.ids[[length(contact.ids)+1]]<<-current.contact.ids},
-                             acceptfun<<-function() {
-                               current.contact.ids <<-proposed.contact.ids},
                              nburn=burnin,
                              initial = initial.parameters,
-                             nbatch = out, blen = saveiteration,...pars=initial.parameters,age.group.limits,age.group.sizes,risk.ratios.null)
+                             nbatch = out, blen = saveiteration,
+                             outfun= function() {contact.ids[[length(contact.ids)+1]]<<-current.contact.ids},
+                             acceptfun= function() {contact.ids[[length(contact.ids)+1]]<<-current.contact.ids},
+                             pars=initial.parameters, agegrouplimits=age.group.limits, agegroupsizes=age.group.sizes, riskratios=risk.ratios.null)
 proc.time() - ptm
 
-
-###############Cut and Sort into outbreak size, age group, risk group
-
-colnames(mcmc.result$batch) <- c("eps1", "eps2", "eps3", "psi", "q",
-                                 "susc1", "susc2", "susc3", "I0")
-
-ggplot(data=melt(mcmc.result$batch)) + facet_wrap( ~ Var2, ncol=3, scales="free" ) + geom_histogram(aes(x=value,factor=Var2), bins=25)
-
-
-cim<-credible.interval.model(ode.results, mcmc.result$batch, intervals = c(0,0.5,0.975))
-cim$row.ID<-as.Date(as.character(cim$row.ID))
-#####################################Plot
-library(ggplot2)
-cases <- sapply(seq(1,nrow(mcmc.result$batch)), function(i)
-{
-  sum(vaccinationScenario( age_sizes=age_sizes[,1],
-                           vaccine_calendar=vaccine_calendar,
-                           polymod_data=as.matrix(polymod_uk),
-                           contact_ids=mcmc.result$contact.ids[i,],
-                           parameters=mcmc.result$batch[i,]
-  ))
-})
-ggplot(data=data.frame("cases"=cases)) + geom_histogram(aes(x=cases),bins=25)
