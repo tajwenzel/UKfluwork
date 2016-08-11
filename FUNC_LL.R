@@ -12,7 +12,7 @@ build.llikelihood<-function()
 llikelihood.f <- function(pars, agegrouplimits, agegroupsizes, riskratios,...)
   {
   proposed.contact.ids <<- current.contact.ids
-    if (runif(1,0,1) < 0.1) {
+    if (runif(1,0,1) < 1) {
       rs <<- round(runif(2,1,length(proposed.contact.ids)))
       proposed.contact.ids[rs[1]] <<- rs[2]
     }
@@ -51,8 +51,8 @@ llikelihood.f <- function(pars, agegrouplimits, agegroupsizes, riskratios,...)
     #converted.odes[,5] <- rowSums(odes[,c(7)])
     #converted.odes <- converted.odes[,1:5]
     
-    matplot(dateaxis,converted.odes[,1:length(converted.odes)], type='l')
-    legend('topleft',legend=1:length(converted.odes),col=1:length(converted.odes), pch=2)
+    #matplot(dateaxis,converted.odes[,1:length(converted.odes)], type='l')
+    #legend('topleft',legend=1:length(converted.odes),col=1:length(converted.odes), pch=2)
     # For each week and each group sum log likelihood
     
     ll<-log_likelihood_cases(
