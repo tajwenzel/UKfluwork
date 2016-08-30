@@ -1,28 +1,29 @@
 #Source file for fluEvidenceSynthesis with access to vaccine coverage options. Adapted from code by Baguelin 2013 and Edwin van Leevvan, by TajWenzel.
 #riskratio=risk.ratios.ce
 #scenario=1
-#cov.eff<-cov.effB
-#season=1
+#strain=2
+#cov.eff<-coverageB
+#season=4
 
 vstrategy<-function(riskratio,scenario,cov.eff,season)
   {
   
-   cov <- cov.eff[[season]][,2:22]/100.0
+   cov <- c(cov.eff[[season]][,2:22])
     #USE COV INSTEAD OF COVERAGE SO DON'T HAVE TO DO THE /100 at every step
 
 ##################################################################################################
 #Efficacy
 ##################################################################################################
-  
-    eff.pull<-cov.eff[[season]][1,23:43] 
+    #eff.pull<-cov.eff[[4]][1,23:43]
+    eff.pull<-as.vector(cov.eff[[season]][1,23:43])
           #pull first row of efficacies from matrix, matrix starts at 23 as 21 risk*age groups in                  original data +1 column for dates. This encompasses 2 risk*age groups (14 columns)
           
-    efficacy <- eff.pull
-    dates <-as.Date(cov.eff[[season]]$V1,origin="1970-01-01")
+    #efficacy <-eff.pull;
+    dates <-as.Date(cov.eff[[season]]$V1,origin="1970-01-01");
      
 
           #set empty storage matrix on the dimension agegroups*time data=nrows, ncol=efficacy
-          calendar <- matrix(rep(0),nrow=length(dates),ncol = length(efficacy))
+          calendar <- matrix(rep(0),nrow=length(dates),ncol = length(eff.pull))
 
 
 ############SETTING UP VACCINE PROGRAM, DEFINE WHICH AGE GROUPS ARE VACCINATED 
@@ -50,7 +51,7 @@ vstrategy<-function(riskratio,scenario,cov.eff,season)
             calendar[t,c(16)] <-0
             calendar[t,c(17)] <-0
             calendar[t,c(18)] <-0
-            calendar[t,c(19)] <-0
+            calendar[t,c(19)] <-cov[[14]]
             calendar[t,c(20)] <-cov[[14]] 
           }
             
@@ -208,9 +209,10 @@ vstrategy<-function(riskratio,scenario,cov.eff,season)
                       }
         #compile vaccine schedule
                    
-vaccine3 <- as.vaccination.calendar(efficacy = efficacy, dates = dates, 
-                                    coverage = calendar,no_risk_groups=2,no_age_groups=8)
+vaccine3 <- as.vaccination.calendar(efficacy = eff.pull, dates = dates, 
+                                    coverage = calendar,no_risk_groups=2,no_age_groups=10)
 
-v.output<-list(vaccine3$efficacy,vaccine3$calendar)
+eff.out<-as.vector(unlist(vaccine3$efficacy),mode='numeric')
+v.output<-list('efficacy'=eff.out,'dates'=vaccine3$dates,'calendar'=vaccine3$calendar)
 return(v.output)
 }

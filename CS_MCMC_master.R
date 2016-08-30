@@ -30,6 +30,7 @@ library(pander)
 #install.packages('data.table', type = 'source',repos = 'http://Rdatatable.github.io/data.table')
 library(data.table)
 #library(parallel)
+library(gdata)
 #library(Rcpp)
 #Sys.setenv("PKG_CXXFLAGS"="-fopenmp -std=c++11")
 #library(pbapply)
@@ -79,58 +80,61 @@ master.mcmc<-function(bb)
 
   data("age_sizes")
   
-  
   initial.parameters <- dget(file="INPUT_UKInitial.R") #unknowns and known
-  vstrategy<-dget(file='FUNC_vstrategy8.R')
+  vstrategy<-dget(file='FUNC_cov_strategy.R')
   
   #respecify groups
-  age.group.limits <- c(1,5,12,17,26,46,65) # 8 age groups
-  #risk.ratios.null<-matrix(c(rep(0,7)), ncol = 7, byrow = T)
-  
-  risk.ratios.ce<-matrix(c(0.021, 0.021, 0.055, 0.098, 0.087, 0.092, 0.183, 0.45,0,0,0,0,0,0,0,0),ncol=(length(age.group.limits)+1),byrow=TRUE)  # Fraction of each age group classified as high risk. Additional risk groups can be added here, as additional rows in our risk.ratios matrix)
-  
-  vcalendar<-vstrategy(risk.ratios.ce, scenario)
-  
-  age.group.sizes<<-stratify_by_age(age_sizes$V1,age.group.limits)
-  confirmed.samples<-dget(file='/Users/Natasha/Dropbox/UKfluwork/INPUT_confirmedsamp8.R')
+  age.group.limits<-c(1,5,12,15,16,25,45,65,75) #upper limits
   
   
-  load("/Users/Natasha/Dropbox/UKfluworkGIT/MainCode/vaccine.calendars.Rda")
-#Calculate the 8 age group polymod
-#div8polymod<-dget(file='INPUT_polymod_pull8.R',keep.source=TRUE)
-#div8polymod(age.group.sizes,touchtype=1)
+  risk.ratios.ce<-matrix(c(0.021,0.055,0.098,0.098,0.098,0.087,0.092,0.183,0.45,0.45,
+                           0,0,0,0,0,0,0,0,0,0),ncol=length(age.group.limits)+1, byrow=TRUE)  # Fraction of each age group classified as high risk. Additional risk groups can be added here, as additional rows in our risk.ratios matrix)
+  
+age.group.sizes<<-stratify_by_age(age_sizes$V1,age.group.limits)
 
-#temp2 = list.files(pattern="*table8.csv")
-#allpolymod = lapply(temp2, fread)
-polymod<<-fread(input='GBtable8.csv',sep = 'auto')
+#-----------incidence for likelihood--------------------------------------------------
+ILI<-fread(input='/Users/Natasha/Dropbox/UKfluworkGIT/ILIincidence.csv',sep2=',')
+confirmed.samples<-ILI[-(1:3),]
+confirmed.samples[[3]]<-NULL;
+confirmed.samples[[2]]<-NULL;
+confirmed.samples[[1]]<-NULL;
+colnames(confirmed.samples)=c('V1','V2','V3','V4','V5','V6','V7','V8')
+
+ili.array<-array(as.numeric(unlist(confirmed.samples)), c(52,8,19))
+#index by [week,age-group,year(i)-1994]
+
+#-----------reconfigure polymod--------------------------------------------------
+polymod<-fread(input='/Users/Natasha/Dropbox/UKfluworkGIT/Inputdata/GBtable10.csv',sep = 'auto')
+#here 65-74, and 75+ are combined
+#repeat column V11 as we assume 65-74 and 75+ people have the same contact rates
+polymod<<-cbind(polymod,polymod$V11)
+colnames(polymod)=c('V1','V2','V3','V4','V5','V6','V7','V8','V9','V10','V11','V12')
 current.contact.ids <<- seq(1,nrow(polymod))
 proposed.contact.ids <<- current.contact.ids
 ########################################################################################
 # Seasonal vaccination plan
 ########################################################################################
-load('cov.effH1'); cov.effH1<-vset;
-load('cov.effH3'); cov.effH3<-vset;
-load('cov.effB'); cov.effB<-vset;
-vset<-NULL
+load('/Users/Natasha/Dropbox/UKfluworkGIT/coverageH1'); coverageH1<-cov.eff;
+load('/Users/Natasha/Dropbox/UKfluworkGIT/coverageH3'); coverageH3<-cov.eff;
+load('/Users/Natasha/Dropbox/UKfluworkGIT/coverageB'); coverageB<-cov.eff;
+cov.eff<-NULL
 
-for (strain in 1:3)} #end
+strain<-2
+scenario=1
+season=4
 
-
-  for (season in 1:length(cov.effB))
-    
-vcalendar(risk.ratios.ce,scenario,season) #seasons and strains are saved 3 separate datasets which have been manipulated into a list format by Nwenzel and saved under cov.effH1, cov.effH3, cov.effB.
-
+  cov.eff.data<-list(coverageH1,coverageH3,coverageB)
+  cov.eff.in<-cov.eff.data[[strain]]
   
-
-
-
-
+for (season in 1:length(cov.eff.in))
+{
+vcalendar<-vstrategy(risk.ratios.ce, scenario,cov.eff.in,season) #seasons and strains are saved 3 separate datasets which have been manipulated into a list format by Nwenzel and saved under cov.effH1, cov.effH3, cov.effB.
 
 
 ####################################################################################################
 #Likelihood constant
 ####################################################################################################
-buildLL<-dget(file='FUNC_LL8.R',keep.source=TRUE)
+buildLL<-dget(file='FUNC_LL.R',keep.source=TRUE)
 llikelihood<-buildLL()
 
   llprior <- function(pars) {
@@ -145,23 +149,6 @@ llikelihood<-buildLL()
     
     return(lprob)
   }
-  
- 2013/2014 live attenuated vaccine leave out 
-  llprior <- function(pars) {
-    if (any(pars[1:8] < 0) || any(pars[1:4] > 1) || any(pars[6:8] > 1)
-        || pars[9] < log(0.00001) || pars[9] > log(10) )
-      return(-Inf)
-    
-    lprob <- dnorm(pars[5], 0.1653183, 0.02773053, 1) 
-    + dlnorm(pars[1], -4.493789, 0.2860455, 1) 
-    + dlnorm(pars[2], -4.117028, 0.4751615, 1) 
-    + dlnorm(pars[3], -2.977965, 1.331832, 1);
-    
-    return(lprob)
-  }
-  
-  
-  
   
   ####################################################################################################
   #MCMC run iteration 
@@ -178,11 +165,16 @@ llikelihood<-buildLL()
                                nbatch = out, blen = saveiteration,
                                outfun= function() {contact.ids[[length(contact.ids)+1]]<<-current.contact.ids},
                                acceptfun= function() {current.contact.ids <<- proposed.contact.ids}, agegrouplimits=age.group.limits, agegroupsizes=age.group.sizes, riskratios=risk.ratios.ce,polymod=polymod)
-  proc.time() - ptm}
-    
-  prog.name<-c(0:7)
-  save(contact.ids,file=paste0('ctmatprog2',prog.name[bb]))
-  save(mcmc.result,file=paste0('GBprog2', prog.name[bb]))
+  proc.time() - ptm
+  #prog.name<-c(0:7)
+  
+  strain.name<-c('H1','H3','B')
+  date.labels<-format(as.Date(cov.eff.in[[season]]$V1, origin="1970-01-01"), "%Y")
+  
+  save(contact.ids,file=paste0('flu',date.labels[[season]],strain.name[strain]))
+  save(mcmc.result,file=paste0('flu',date.labels[[season]], strain.name[strain]))
+    }
+  }
 }
 
 

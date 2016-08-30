@@ -4,7 +4,9 @@
 #polymod<-set
 #agegrouplimits<-age.group.limits
 #agegroupsizes<-age.group.sizes
-#riskratios<-risk.ratios.null
+#riskratios<-risk.ratios.ce
+
+
 
 
 build.llikelihood<-function()
@@ -27,13 +29,13 @@ llikelihood.f <- function(pars, agegrouplimits, agegroupsizes, riskratios,...)
     popv <- stratify_by_risk(age.groups,riskratios) #agegroups*risk groups
     
     
-    epsilons <- c(pars[1], pars[1], pars[2], pars[2], pars[2],pars[3],pars[3]); #epsilon is         ascertainment
+    epsilons <- c(pars[1],pars[1], pars[1], pars[1],pars[2],pars[2], pars[2], pars[2],pars[3],pars[3]); #epsilon is ascertainment
     
-    initial.risk<-(rep(10^pars[9], length(riskratios)));
+    initial.risk<-(rep(10^pars[9], length(epsilons)));
     initial.infected <- stratify_by_risk(initial.risk, riskratios) 
     odes <<- infectionODEs(popv, initial.infected,
                           vaccine_calendar,
-                    contacts,c(pars[6], pars[6], pars[6],pars[7], pars[7], pars[7], pars[8]),
+                    contacts,c(pars[6],pars[6], pars[6], pars[6],pars[6],pars[7], pars[7], pars[7],pars[8], pars[8]),
                           transmissibility = pars[5],
                           infection_delays=c(0.8,1.8), interval=7 ) #interval is in days
     
@@ -44,12 +46,15 @@ llikelihood.f <- function(pars, agegrouplimits, agegroupsizes, riskratios,...)
     dateaxis<-odes[,1]
     
     #Convert age groups and risk groups
-    #converted.odes[,1] <- rowSums(odes[,1])
-    #converted.odes[,2] <- rowSums(odes[,c(2,3)])
-    #converted.odes[,3] <- rowSums(odes[,c(4,5)])
-    #converted.odes[,4] <- rowSums(odes[,c(6)])
-    #converted.odes[,5] <- rowSums(odes[,c(7)])
-    #converted.odes <- converted.odes[,1:5]
+    converted.odes[,1] <- rowSums(odes[,1])
+    converted.odes[,2] <- rowSums(odes[,c(2)])
+    converted.odes[,3] <- rowSums(odes[,c(3,4)])
+    converted.odes[,4] <- rowSums(odes[,c(5,6)])
+    converted.odes[,6] <- rowSums(odes[,c(7)])
+    converted.odes[,7] <- rowSums(odes[,c(8)])
+    converted.odes[,8] <- rowSums(odes[,c(9)])
+    converted.odes[,9] <- rowSums(odes[,c(10)])
+    converted.odes <- converted.odes[,1:9]
     
     #matplot(dateaxis,converted.odes[,1:length(converted.odes)], type='l')
     #legend('topleft',legend=1:length(converted.odes),col=1:length(converted.odes), pch=2)
@@ -57,7 +62,7 @@ llikelihood.f <- function(pars, agegrouplimits, agegroupsizes, riskratios,...)
     
     ll<-log_likelihood_cases(
       epsilons,pars[4], as.matrix(converted.odes),
-      agegroupsizes, newili$ili, newili$total.monitored,
+      agegroupsizes, ili.array[,,season], newili$total.monitored,
       newcs$positive, newcs$total.samples)
     return(ll)
   }
